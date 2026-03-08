@@ -3,6 +3,8 @@
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { sendEmail } from "@/lib/email/send";
+import { bookingConfirmedEmail } from "@/lib/email/templates";
 
 export async function confirmPayment(reservationId: string) {
   await requireAdminAccess();
@@ -19,6 +21,24 @@ export async function confirmPayment(reservationId: string) {
 
   if (error) {
     return { error: "Zahlung konnte nicht bestaetigt werden." };
+  }
+
+  // Bestaetigungs-E-Mail senden
+  const { data: reservation } = await supabase
+    .from("reservations")
+    .select("contact_first_name, contact_email, total_price, house:houses!inner(house_number, house_type:house_types!inner(name))")
+    .eq("id", reservationId)
+    .single();
+
+  if (reservation) {
+    const ht = reservation.house as unknown as { house_number: number; house_type: { name: string } };
+    const email = bookingConfirmedEmail({
+      firstName: reservation.contact_first_name,
+      houseTypeName: ht.house_type.name,
+      houseLabel: `Haus ${ht.house_number}`,
+      totalPrice: reservation.total_price,
+    });
+    sendEmail({ to: reservation.contact_email, ...email }).catch(console.error);
   }
 
   revalidatePath("/admin");

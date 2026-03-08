@@ -6,6 +6,43 @@ import {
   type BookingFormData,
 } from "@/lib/validations/booking";
 import { redirect } from "next/navigation";
+import { sendEmail } from "@/lib/email/send";
+import { reservationConfirmationEmail } from "@/lib/email/templates";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+async function sendReservationEmail(
+  data: BookingFormData,
+  result: { id: string; payment_reference: string; expires_at: string; confirmation_token: string }
+) {
+  const supabase = createAdminClient();
+
+  // Event- und Haustyp-Daten fuer die E-Mail laden
+  const [{ data: event }, { data: houseType }] = await Promise.all([
+    supabase.from("events").select("bank_account_holder, bank_iban, bank_bic").eq("id", data.event_id).single(),
+    supabase.from("house_types").select("name, price_per_house").eq("id", data.house_type_id).single(),
+  ]);
+
+  if (!event || !houseType) return;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const confirmationUrl = `${siteUrl}/anmeldung/bestaetigung?id=${result.id}&token=${encodeURIComponent(result.confirmation_token)}`;
+
+  const email = reservationConfirmationEmail({
+    firstName: data.contact_first_name,
+    lastName: data.contact_last_name,
+    houseTypeName: houseType.name,
+    houseLabel: `Haus`,
+    totalPrice: houseType.price_per_house,
+    paymentReference: result.payment_reference,
+    expiresAt: result.expires_at,
+    bankAccountHolder: event.bank_account_holder,
+    bankIban: event.bank_iban,
+    bankBic: event.bank_bic,
+    confirmationUrl,
+  });
+
+  await sendEmail({ to: data.contact_email, ...email });
+}
 
 export async function createReservation(formData: BookingFormData) {
   const parsed = bookingFormSchema.safeParse(formData);
@@ -48,6 +85,9 @@ export async function createReservation(formData: BookingFormData) {
         result?.error || "Reservierung fehlgeschlagen. Bitte versuchen Sie es erneut.",
     };
   }
+
+  // E-Mail senden (async, blockiert nicht den Redirect)
+  sendReservationEmail(data, result).catch(console.error);
 
   redirect(
     `/anmeldung/bestaetigung?id=${result.id}&token=${encodeURIComponent(

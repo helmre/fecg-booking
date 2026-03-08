@@ -22,7 +22,10 @@ async function sendReservationEmail(
     supabase.from("house_types").select("name, price_per_house").eq("id", data.house_type_id).single(),
   ]);
 
-  if (!event || !houseType) return;
+  if (!event || !houseType) {
+    console.error("[Email] Missing data - event:", !!event, "houseType:", !!houseType);
+    return;
+  }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const confirmationUrl = `${siteUrl}/anmeldung/bestaetigung?id=${result.id}&token=${encodeURIComponent(result.confirmation_token)}`;

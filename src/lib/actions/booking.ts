@@ -76,10 +76,12 @@ export async function createReservation(formData: BookingFormData) {
   );
 
   if (error) {
-    return { error: "Reservierung fehlgeschlagen. Bitte versuchen Sie es erneut." };
+    console.error("RPC create_public_reservation error:", error.message, error.code, error.details);
+    return { error: `Reservierung fehlgeschlagen: ${error.message}` };
   }
 
   if (result?.error || !result?.id || !result?.confirmation_token) {
+    console.error("RPC result error:", result);
     return {
       error:
         result?.error || "Reservierung fehlgeschlagen. Bitte versuchen Sie es erneut.",

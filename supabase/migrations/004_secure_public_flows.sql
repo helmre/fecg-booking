@@ -19,7 +19,7 @@ CREATE OR REPLACE FUNCTION create_public_reservation(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_event events%ROWTYPE;
@@ -170,7 +170,7 @@ CREATE OR REPLACE FUNCTION join_public_waitlist(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_event events%ROWTYPE;
@@ -298,7 +298,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
   SELECT
     r.id AS reservation_id,
